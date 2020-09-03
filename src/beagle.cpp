@@ -1,18 +1,16 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <pybind11/stl_bind.h>
+#include <pybind11/numpy.h>
 
 #include "libhmsbeagle/beagle.h"
 
 namespace py = pybind11;
 
 
-PYBIND11_MAKE_OPAQUE(std::vector<double>);
+using double_np = py::array_t<double, pybind11::array::c_style | pybind11::array::forcecast>;
 
 
 PYBIND11_MODULE(beagle, m) {
-    py::bind_vector<std::vector<double>>(m, "VectorDouble");
-
 
     py::enum_<BeagleReturnCodes>(m, "BeagleReturnCodes", py::arithmetic(), R"pbdoc(Error return codes
     This enumerates all possible BEAGLE return codes.  Error codes are always negative.
@@ -74,9 +72,6 @@ PYBIND11_MODULE(beagle, m) {
         
         .value("BEAGLE_FLAG_PARALLELOPS_STREAMS", BEAGLE_FLAG_PARALLELOPS_STREAMS, "Operations in updatePartials may be assigned to separate device streams")
         .value("BEAGLE_FLAG_PARALLELOPS_GRID", BEAGLE_FLAG_PARALLELOPS_GRID, "Operations in updatePartials may be folded into single kernel launch (necessary for partitions; typically performs better for problems with fewer pattern sites)")
-               
-        .value("BEAGLE_FLAG_PREORDER_TRANSPOSE_MANUAL", BEAGLE_FLAG_PREORDER_TRANSPOSE_MANUAL, "Pre-order transition matrices passed to BEAGLE have been transposed")
-        .value("BEAGLE_FLAG_PREORDER_TRANSPOSE_AUTO", BEAGLE_FLAG_PREORDER_TRANSPOSE_AUTO, "Automatically transpose pre-order transition matrices)") 
         .export_values();
 
 
@@ -159,7 +154,7 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
     
-    m.def("get_resource_list", [](int tipCount,
+    m.def("get_benchmarked_resource_list", [](int tipCount,
                                   int compactBufferCount,
                                   int stateCount,
                                   int patternCount,
@@ -211,8 +206,7 @@ PYBIND11_MODULE(beagle, m) {
                                 int matrixBufferCount,
                                 int categoryCount,
                                 int scaleBufferCount,
-                                std::vector<int>& resourceList,
-                                int resourceCount,
+                                std::optional<std::vector<int>> resourceList,
                                 long preferenceFlags,
                                 long requirementFlags){
         BeagleInstanceDetails returnInfo;
@@ -225,14 +219,17 @@ PYBIND11_MODULE(beagle, m) {
                          matrixBufferCount,
                          categoryCount,
                          scaleBufferCount,
-                         resourceList.data(),
-                         resourceCount,
+                         resourceList.has_value() ? resourceList->data() : nullptr,
+                         resourceList.has_value() ? resourceList->size() : 0,
                          preferenceFlags,
                          requirementFlags,
                          &returnInfo);
         return std::make_pair(instance, returnInfo);
         
-    }
+    }, py::arg("tipCount"), py::arg("partialsBufferCount"), py::arg("stateCount"),
+     py::arg("patternCount"), py::arg("eigenBufferCount"), py::arg("matrixBufferCount"),
+     py::arg("categoryCount"), py::arg("scaleBufferCount"), py::arg("resourceList") = py::none(),
+     py::arg("preferenceFlags"), py::arg("requirementFlags"), py::arg("returnInfo")
     ,R"pbdoc(Create a single instance
 
     This function creates a single instance of the BEAGLE library and can be called
@@ -308,8 +305,8 @@ PYBIND11_MODULE(beagle, m) {
     m.def("get_partials", [](int instance,
                              int bufferIndex,
                              int scaleIndex,
-                             std::vector<double>& inPartials){
-    return beagleGetPartials(instance, bufferIndex, scaleIndex, inPartials.data());
+                             double_np inPartials){
+    return beagleGetPartials(instance, bufferIndex, scaleIndex, (double*)inPartials.data());
     }
     ,R"pbdoc(Get partials from an instance buffer
 
@@ -320,9 +317,9 @@ PYBIND11_MODULE(beagle, m) {
 
     m.def("set_eigen_decomposition", [](int instance,
                                         int eigenIndex,
-                                        const std::vector<double>& inEigenVectors,
-                                        const std::vector<double>& inInverseEigenVectors,
-                                        const std::vector<double>& inEigenValues){
+                                        double_np inEigenVectors,
+                                        double_np inInverseEigenVectors,
+                                        double_np inEigenValues){
     return beagleSetEigenDecomposition(instance, eigenIndex, inEigenVectors.data(), inInverseEigenVectors.data(), inEigenValues.data());
     }
     ,R"pbdoc(Set an eigen-decomposition buffer
@@ -413,18 +410,41 @@ PYBIND11_MODULE(beagle, m) {
     m.def("update_transition_matrices", [](int instance,
                                            int eigenIndex,
                                            const std::vector<int>& probabilityIndices,
-                                           const std::vector<int>& firstDerivativeIndices,
-                                           const std::vector<int>& secondDerivativeIndices,
+                                           std::optional<std::vector<int>> firstDerivativeIndices,
+                                           std::optional<std::vector<int>> secondDerivativeIndices,
                                            const std::vector<double>& edgeLengths){
     return beagleUpdateTransitionMatrices(instance,
         eigenIndex,
         probabilityIndices.data(),
-        firstDerivativeIndices.size() != 0 ? firstDerivativeIndices.data() : nullptr,
-        secondDerivativeIndices.size() != 0 ? secondDerivativeIndices.data() : nullptr,
+        firstDerivativeIndices.has_value() ? firstDerivativeIndices->data() : nullptr,
+        secondDerivativeIndices.has_value() ? secondDerivativeIndices->data() : nullptr,
         edgeLengths.data(),
         edgeLengths.size());
     }
-    ,R"pbdoc(alculate a list of transition probability matrices
+    ,R"pbdoc(Calculate a list of transition probability matrices
+
+    This function calculates a list of transition probabilities matrices and their first and
+    second derivatives (if requested).
+    )pbdoc");
+
+
+    m.def("update_transition_matrices_with_multiple_models", [](int instance,
+                                                                const std::vector<int>& eigenIndices,
+                                                                const std::vector<int>& categoryRateIndices,
+                                                                const std::vector<int>& probabilityIndices,
+                                                                std::optional<std::vector<int>> firstDerivativeIndices,
+                                                                std::optional<std::vector<int>> secondDerivativeIndices,
+                                                                const std::vector<double>& edgeLengths){
+    return beagleUpdateTransitionMatricesWithMultipleModels(instance,
+        eigenIndices.data(),
+        categoryRateIndices.data(),
+        probabilityIndices.data(),
+        firstDerivativeIndices.has_value() ? firstDerivativeIndices->data() : nullptr,
+        secondDerivativeIndices.has_value() ? secondDerivativeIndices->data() : nullptr,
+        edgeLengths.data(),
+        edgeLengths.size());
+    }
+    ,R"pbdoc(Calculate a list of transition probability matrices with multiple models
 
     This function calculates a list of transition probabilities matrices and their first and
     second derivatives (if requested).
@@ -617,20 +637,33 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
 
+    m.def("get_scale_factors", [](int instance,
+                                  int srcScalingIndex,
+                                  double_np outScaleFactors){
+    return beagleGetScaleFactors(instance,
+        srcScalingIndex,
+        (double*)outScaleFactors.data());
+    }
+    ,R"pbdoc(Get scale factors
+
+    This function retrieves a buffer of scale factors.
+    )pbdoc");
+
+
     m.def("calculate_root_log_likelihoods", [](int instance,
                                                const std::vector<int>& bufferIndices,
                                                const std::vector<int>& categoryWeightsIndices,
                                                const std::vector<int>& stateFrequenciesIndices,
                                                const std::vector<int>& cumulativeScaleIndices,
                                                int count,
-                                               std::vector<double>& outSumLogLikelihood){
+                                               double_np outSumLogLikelihood){
     return beagleCalculateRootLogLikelihoods(instance,
         bufferIndices.data(),
         categoryWeightsIndices.data(),
         stateFrequenciesIndices.data(),
         cumulativeScaleIndices.data(),
         count,
-        outSumLogLikelihood.data());
+        (double*)outSumLogLikelihood.data());
     }
     ,R"pbdoc(Calculate site log likelihoods at a root node
 
@@ -645,20 +678,19 @@ PYBIND11_MODULE(beagle, m) {
                                                             const std::vector<int>& stateFrequenciesIndices,
                                                             const std::vector<int>& cumulativeScaleIndices,
                                                             const std::vector<int>& partitionIndices,
-                                                            int partitionCount,
                                                             int count,
-                                                            std::vector<double>& outSumLogLikelihoodByPartition,
-                                                            std::vector<double>& outSumLogLikelihood){
+                                                            double_np outSumLogLikelihoodByPartition,
+                                                            double_np outSumLogLikelihood){
     return beagleCalculateRootLogLikelihoodsByPartition(instance,
         bufferIndices.data(),
         categoryWeightsIndices.data(),
         stateFrequenciesIndices.data(),
         cumulativeScaleIndices.data(),
         partitionIndices.data(),
-        partitionCount,
+        partitionIndices.size(),
         count,
-        outSumLogLikelihoodByPartition.data(),
-        outSumLogLikelihood.data());
+        (double*)outSumLogLikelihoodByPartition.data(),
+        (double*)outSumLogLikelihood.data());
     }
     ,R"pbdoc(Calculate site log likelihoods at a root node with per partition buffers
 
@@ -671,29 +703,33 @@ PYBIND11_MODULE(beagle, m) {
                                                const std::vector<int>& parentBufferIndices,
                                                const std::vector<int>& childBufferIndices,
                                                const std::vector<int>& probabilityIndices,
-                                               const std::vector<int>& firstDerivativeIndices,
-                                               const std::vector<int>& secondDerivativeIndices,
+                                               std::optional<std::vector<int>> firstDerivativeIndices,
+                                               std::optional<std::vector<int>> secondDerivativeIndices,
                                                const std::vector<int>& categoryWeightsIndices,
                                                const std::vector<int>& stateFrequenciesIndices,
                                                const std::vector<int>& cumulativeScaleIndices,
                                                int count,
-                                               std::vector<double>& outSumLogLikelihood,
-                                               std::vector<double>& outSumFirstDerivative,
-                                               std::vector<double>& outSumSecondDerivative){
+                                               double_np outSumLogLikelihood,
+                                               std::optional<double_np> outSumFirstDerivative,
+                                               std::optional<double_np> outSumSecondDerivative){
         return beagleCalculateEdgeLogLikelihoods(instance,
             parentBufferIndices.data(),
             childBufferIndices.data(),
             probabilityIndices.data(),
-            firstDerivativeIndices.size() != 0 ? firstDerivativeIndices.data() : nullptr,
-            secondDerivativeIndices.size() != 0 ? secondDerivativeIndices.data() : nullptr,
+            firstDerivativeIndices.has_value() ? firstDerivativeIndices->data() : nullptr,
+            secondDerivativeIndices.has_value() ? secondDerivativeIndices->data() : nullptr,
             categoryWeightsIndices.data(),
             stateFrequenciesIndices.data(),
             cumulativeScaleIndices.data(),
             count,
-            outSumLogLikelihood.data(),
-            outSumFirstDerivative.size() != 0 ? outSumFirstDerivative.data() : nullptr,
-            outSumSecondDerivative.size() != 0 ? outSumSecondDerivative.data() : nullptr);
-    }
+            (double*)outSumLogLikelihood.data(),
+            outSumFirstDerivative.has_value() ? (double*)outSumFirstDerivative->data() : nullptr,
+            outSumSecondDerivative.has_value() ? (double*)outSumSecondDerivative->data() : nullptr);
+    }, py::arg("instance"), py::arg("parentBufferIndices"), py::arg("childBufferIndices"), py::arg("probabilityIndices"),
+       py::arg("firstDerivativeIndices") = py::none(), py::arg("secondDerivativeIndices") = py::none(),
+       py::arg("categoryWeightsIndices"), py::arg("stateFrequenciesIndices"),
+       py::arg("cumulativeScaleIndices"), py::arg("count"), py::arg("outSumLogLikelihood"),
+       py::arg("outSumFirstDerivative") = py::none(), py::arg("outSumSecondDerivative") = py::none()
     ,R"pbdoc(Calculate site log likelihoods and derivatives along an edge
 
     This function integrates a list of partials at a parent and child node with respect
@@ -706,38 +742,37 @@ PYBIND11_MODULE(beagle, m) {
                                                             const std::vector<int>& parentBufferIndices,
                                                             const std::vector<int>& childBufferIndices,
                                                             const std::vector<int>& probabilityIndices,
-                                                            const std::vector<int>& firstDerivativeIndices,
-                                                            const std::vector<int>& secondDerivativeIndices,
+                                                            std::optional<std::vector<int>> firstDerivativeIndices,
+                                                            std::optional<std::vector<int>> secondDerivativeIndices,
                                                             const std::vector<int>& categoryWeightsIndices,
                                                             const std::vector<int>& stateFrequenciesIndices,
                                                             const std::vector<int>& cumulativeScaleIndices,
                                                             const std::vector<int>& partitionIndices,
-                                                            int partitionCount,
                                                             int count,
-                                                            std::vector<double>& outSumLogLikelihoodByPartition,
-                                                            std::vector<double>& outSumLogLikelihood,
-                                                            std::vector<double>& outSumFirstDerivativeByPartition,
-                                                            std::vector<double>& outSumFirstDerivative,
-                                                            std::vector<double>& outSumSecondDerivativeByPartition,
-                                                            std::vector<double>& outSumSecondDerivative){
+                                                            double_np outSumLogLikelihoodByPartition,
+                                                            double_np outSumLogLikelihood,
+                                                            std::optional<double_np> outSumFirstDerivativeByPartition,
+                                                            std::optional<double_np> outSumFirstDerivative,
+                                                            std::optional<double_np> outSumSecondDerivativeByPartition,
+                                                            std::optional<double_np> outSumSecondDerivative){
         return beagleCalculateEdgeLogLikelihoodsByPartition(instance,
             parentBufferIndices.data(),
             childBufferIndices.data(),
             probabilityIndices.data(),
-            firstDerivativeIndices.size() != 0 ? firstDerivativeIndices.data() : nullptr,
-            secondDerivativeIndices.size() != 0 ? secondDerivativeIndices.data() : nullptr,
+            firstDerivativeIndices.has_value() ? (int*)firstDerivativeIndices->data() : nullptr,
+            secondDerivativeIndices.has_value() ? (int*)secondDerivativeIndices->data() : nullptr,
             categoryWeightsIndices.data(),
             stateFrequenciesIndices.data(),
             cumulativeScaleIndices.data(),
             partitionIndices.data(),
-            partitionCount,
+            partitionIndices.size(),
             count,
-            outSumLogLikelihoodByPartition.size() != 0 ? outSumLogLikelihoodByPartition.data() : nullptr,
-            outSumLogLikelihood.data(),
-            outSumFirstDerivativeByPartition.size() != 0 ? outSumFirstDerivativeByPartition.data() : nullptr,
-            outSumFirstDerivative.size() ? outSumFirstDerivative.data() : nullptr,
-            outSumSecondDerivativeByPartition.size() != 0 ? outSumSecondDerivativeByPartition.data() : nullptr,
-            outSumSecondDerivative.size() != 0 ? outSumSecondDerivative.data() : nullptr);
+            (double*)outSumLogLikelihoodByPartition.data(),
+            (double*)outSumLogLikelihood.data(),
+            outSumFirstDerivativeByPartition.has_value() ? (double*)outSumFirstDerivativeByPartition->data() : nullptr,
+            outSumFirstDerivative.has_value() ? (double*)outSumFirstDerivative->data() : nullptr,
+            outSumSecondDerivativeByPartition.has_value() ? (double*)outSumSecondDerivativeByPartition->data() : nullptr,
+            outSumSecondDerivative.has_value() ? (double*)outSumSecondDerivative->data() : nullptr);
     }
     ,R"pbdoc(Calculate multiple site log likelihoods and derivatives along an edge with per partition buffers
 
@@ -747,8 +782,8 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
 
-    m.def("get_log_likelihood", [](int instance, std::vector<double>& outSumLogLikelihood){
-        return beagleGetLogLikelihood(instance, outSumLogLikelihood.data());
+    m.def("get_log_likelihood", [](int instance, double_np outSumLogLikelihood){
+        return beagleGetLogLikelihood(instance, (double*)outSumLogLikelihood.data());
     }
     ,R"pbdoc(Returns log likelihood sum and subsequent to an asynchronous integration call
 
@@ -761,11 +796,42 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
 
-    m.def("get_site_log_likelihoods", [](int instance, std::vector<double>& outLogLikelihoods){
-        return beagleGetSiteLogLikelihoods(instance, outLogLikelihoods.data());
+    m.def("get_derivatives", [](int instance,
+                                double_np outSumFirstDerivative,
+                                std::optional<double_np> outSumSecondDerivative){
+        return beagleGetDerivatives(instance,
+            (double*)outSumFirstDerivative.data(),
+            outSumSecondDerivative.has_value() ? (double*)outSumSecondDerivative->data() : nullptr);
+    }
+    ,R"pbdoc(Returns derivative sums subsequent to an asynchronous integration call
+
+    This function is optional and only has to be called by clients that use the non-blocking
+    asynchronous computation mode (BEAGLE_FLAG_COMPUTATION_ASYNCH).
+
+    If used, this function must be called after a beagleCalculateEdgeLogLikelihoods call.
+    The library will block until the derivatiives have been calculated.
+    )pbdoc");
+
+
+    m.def("get_site_log_likelihoods", [](int instance, double_np outLogLikelihoods){
+        return beagleGetSiteLogLikelihoods(instance, (double*)outLogLikelihoods.data());
     }
     ,R"pbdoc(Get site log likelihoods for last beagleCalculateRootLogLikelihoods or beagleCalculateEdgeLogLikelihoods call
 
     This function returns the log likelihoods for each site
     )pbdoc");
+
+
+    m.def("get_site_derivatives", [](int instance,
+                                     double_np outFirstDerivatives,
+                                     std::optional<double_np> outSecondDerivatives){
+        return beagleGetSiteDerivatives(instance,
+            (double*)outFirstDerivatives.data(),
+            outSecondDerivatives.has_value() ? (double*)outSecondDerivatives->data() : nullptr);
+    }
+    ,R"pbdoc(Get site derivatives for last beagleCalculateEdgeLogLikelihoods call
+
+    This function returns the derivatives for each site.
+    )pbdoc");
+
 }

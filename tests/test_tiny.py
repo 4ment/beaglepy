@@ -2,6 +2,7 @@ import pytest
 from beagle import *
 import sys
 import itertools
+import numpy as np
 
 
 def printFlags(inFlags):
@@ -111,8 +112,7 @@ def test_tiny(manualScaling, autoScaling):
         4,  # Number of rate matrix buffers (input)
         nRateCats,  # Number of rate categories (input)
         scaleCount,  # Number of scaling buffers
-        [],  # List of potential resource on which this instance is allowed (input, NULL implies no restriction
-        0,  # Length of resourceList list (input)
+        None,  # List of potential resource on which this instance is allowed (input, NULL implies no restriction
         prefered_flags,  #	Bit-flags indicating preferred implementation charactertistics, see BeagleFlags (input)
         0  # Bit-flags indicating required implementation characteristics, see BeagleFlags (input)
     )
@@ -133,15 +133,15 @@ def test_tiny(manualScaling, autoScaling):
     if not (instDetails.flags & BEAGLE_FLAG_SCALING_AUTO):
         autoScaling = False
 
-    humanPartials = VectorDouble(
+    humanPartials = np.array(
         list(
             itertools.chain.from_iterable(
                 [dna_map.get(n, [1., 1., 1., 1.]) for n in human])))
-    chimpPartials = VectorDouble(
+    chimpPartials = np.array(
         list(
             itertools.chain.from_iterable(
                 [dna_map.get(n, [1., 1., 1., 1.]) for n in chimp])))
-    gorillaPartials = VectorDouble(
+    gorillaPartials = np.array(
         list(
             itertools.chain.from_iterable(
                 [dna_map.get(n, [1., 1., 1., 1.]) for n in gorilla])))
@@ -150,27 +150,27 @@ def test_tiny(manualScaling, autoScaling):
     set_tip_partials(instance, 1, chimpPartials)
     set_tip_partials(instance, 2, gorillaPartials)
 
-    rates = VectorDouble([0.03338775, 0.25191592, 0.82026848, 2.89442785])
+    rates = np.array([0.03338775, 0.25191592, 0.82026848, 2.89442785])
 
     # create base frequency array
-    freqs = VectorDouble([0.25] * 16)
+    freqs = np.array([0.25] * 16)
 
     # create an array containing site category weights
-    weights = VectorDouble([1.0 / rateCategoryCount] * rateCategoryCount)
-    patternWeights = VectorDouble([1.0] * nPatterns)
+    weights = np.array([1.0 / rateCategoryCount] * rateCategoryCount)
+    patternWeights = np.array([1.0] * nPatterns)
 
     # an eigen decomposition for the JC69 model
-    evec = VectorDouble([
+    evec = np.array([
         1.0, 2.0, 0.0, 0.5, 1.0, -2.0, 0.5, 0.0, 1.0, 2.0, 0.0, -0.5, 1.0,
         -2.0, -0.5, 0.0
     ])
 
-    ivec = VectorDouble([
+    ivec = np.array([
         0.25, 0.25, 0.25, 0.25, 0.125, -0.125, 0.125, -0.125, 0.0, 1.0, 0.0,
         -1.0, 1.0, 0.0, -1.0, 0.0
     ])
 
-    evalues = VectorDouble(
+    evalues = np.array(
         [0.0, -1.3333333333333333, -1.3333333333333333, -1.3333333333333333])
 
     # set the Eigen decomposition
@@ -184,7 +184,7 @@ def test_tiny(manualScaling, autoScaling):
 
     # a list of indices and edge lengths
     nodeIndices = [0, 1, 2, 3]
-    edgeLengths = VectorDouble([0.1, 0.1, 0.2, 0.1])
+    edgeLengths = np.array([0.1, 0.1, 0.2, 0.1])
 
     rootIndices = [None] * nRootCount
     categoryWeightsIndices = [None] * nRootCount
@@ -205,8 +205,8 @@ def test_tiny(manualScaling, autoScaling):
             instance,  # instance
             0,  # eigenIndex
             nodeIndices,  # probabilityIndices
-            [],  # firstDerivativeIndices
-            [],  # secondDerivativeIndices
+            None,  # firstDerivativeIndices
+            None,  # secondDerivativeIndices
             edgeLengths)  # edgeLengths
 
         # create a list of partial likelihood update operations
@@ -232,9 +232,8 @@ def test_tiny(manualScaling, autoScaling):
         scaleIndices = [3, 4]
         accumulate_scale_factors(instance, scaleIndices, BEAGLE_OP_NONE)
 
-    patternLogLik = VectorDouble([0.] * nPatterns)
-    logL = VectorDouble([0.0])
-    returnCode = 0
+    patternLogLik = np.empty(nPatterns)
+    logL = np.empty(1)
 
     # calculate the site likelihoods at the root node
     returnCode = calculate_root_log_likelihoods(
