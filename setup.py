@@ -18,15 +18,6 @@ class get_pybind_include(object):
         import pybind11
         return pybind11.get_include()
 
-def pkgconfig(*packages, **kw):
-    flag_map = {'-I': 'include_dirs', '-L': 'library_dirs', '-l': 'libraries'}
-    for token in commands.getoutput("pkg-config --libs --cflags %s" % ' '.join(packages)).split():
-        kw.setdefault(flag_map.get(token[:2]), []).append(token[2:])
-    return kw
-
-beagle_prefix = os.environ["BEAGLE_PREFIX"]
-beagle_lib = os.path.join(beagle_prefix, "lib")
-beagle_include = os.path.join(beagle_prefix, "include/libhmsbeagle-1")
 
 ext_modules = [
     Extension(
@@ -37,11 +28,9 @@ ext_modules = [
         include_dirs=[
             # Path to pybind11 headers
             get_pybind_include(),
-            beagle_include,
         ],
         language='c++',
         libraries=['hmsbeagle'],
-        runtime_library_dirs=[beagle_lib]
     ),
 ]
 
@@ -120,6 +109,7 @@ setup(
     author='Mathieu Fourment',
     author_email='mathieu.fourment@uts.edu.au',
     url='https://github.com/4ment/beaglepy',
+    keywords="phylogenetics, BEAGLE, pybind11",
     description='Python binding for beagle',
     license='GPL3',
     long_description='',
@@ -127,4 +117,7 @@ setup(
     setup_requires=['pybind11>=2.5.0'],
     cmdclass={'build_ext': BuildExt},
     zip_safe=False,
+    extras_require={
+        "test": ['pytest', 'numpy']
+    },
 )
