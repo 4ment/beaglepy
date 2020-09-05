@@ -466,6 +466,21 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
 
+    m.def("get_transition_matrix", [](int instance,
+                                      int matrixIndex,
+                                      double_np outMatrix){
+    return beagleGetTransitionMatrix(instance,
+        matrixIndex,
+        (double*)outMatrix.data());
+    }
+    ,R"pbdoc(Get a finite-time transition probability matrix
+
+    This function copies a finite-time transition matrix buffer into the array outMatrix. The
+    outMatrix array should be of size stateCount * stateCount * categoryCount and will be filled
+    with one matrix for each rate category.
+    )pbdoc");
+
+
     m.def("set_transition_matrices", [](int instance,
                                         const std::vector<int>& matrixIndices,
                                         const std::vector<double>& inMatrices,
