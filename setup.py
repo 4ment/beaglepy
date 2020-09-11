@@ -21,7 +21,7 @@ class get_pybind_include(object):
 
 ext_modules = [
     Extension(
-        'beagle',
+        'beaglepy',
         # Sort input source files to ensure bit-for-bit reproducible builds
         # (https://github.com/pybind/python_example/pull/53)
         sorted(['src/beagle.cpp']),
@@ -31,6 +31,7 @@ ext_modules = [
         ],
         language='c++',
         libraries=['hmsbeagle'],
+#         runtime_library_dirs=['/Users/mathieu/Programs/beagle-lib/lib']
     ),
 ]
 

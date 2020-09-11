@@ -10,7 +10,7 @@ namespace py = pybind11;
 using double_np = py::array_t<double, pybind11::array::c_style | pybind11::array::forcecast>;
 
 
-PYBIND11_MODULE(beagle, m) {
+PYBIND11_MODULE(beaglepy, m) {
 
     py::enum_<BeagleReturnCodes>(m, "BeagleReturnCodes", py::arithmetic(), R"pbdoc(Error return codes
     This enumerates all possible BEAGLE return codes.  Error codes are always negative.

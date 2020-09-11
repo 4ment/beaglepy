@@ -1,5 +1,5 @@
 import pytest
-from beagle import *
+from beaglepy import *
 import numpy as np
 
 
