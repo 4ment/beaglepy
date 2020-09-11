@@ -10,6 +10,8 @@ addons:
     packages:
       - libhmsbeagle1v5
       - libhmsbeagle-dev
+before_install:
+  - export CPLUS_INCLUDE_PATH=/usr/include/libhmsbeagle
 install:
   - pip install ".[test]" .
 script: pytest

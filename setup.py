@@ -8,6 +8,10 @@ import os
 __version__ = '0.0.1'
 
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+
 class get_pybind_include(object):
     """Helper class to determine the pybind11 include path
     The purpose of this class is to postpone importing pybind11
@@ -31,7 +35,6 @@ ext_modules = [
         ],
         language='c++',
         libraries=['hmsbeagle'],
-#         runtime_library_dirs=['/Users/mathieu/Programs/beagle-lib/lib']
     ),
 ]
 
@@ -113,7 +116,8 @@ setup(
     keywords="phylogenetics, BEAGLE, pybind11",
     description='Python binding for beagle',
     license='GPL3',
-    long_description='',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     ext_modules=ext_modules,
     setup_requires=['pybind11>=2.5.0'],
     cmdclass={'build_ext': BuildExt},
