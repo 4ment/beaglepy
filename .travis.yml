@@ -1,24 +1,8 @@
-language: python
-python:
-  - 2.7
-  - 3.5
-  - 3.6
-  - 3.7
-os:
-  - linux
-addons:
-  apt:
-    packages:
-      - autoconf
-      - automake
-      - git
-      - libtool
-before_install:
-  - git clone https://github.com/beagle-dev/beagle-lib.git
-  - cd beagle-lib
-  - ./autogen.sh && ./configure --without-opencl --with-jdk=no && sudo make install
-  - export CPLUS_INCLUDE_PATH=/usr/local/include/libhmsbeagle-1
-  - cd ..
-install:
-  - pip install ".[test]" .
-script: pytest
+language: minimal
+
+services:
+  - docker
+
+script:
+  - docker run -v ${PWD}:/beaglepy -t 4ment/beaglepy /bin/bash -c "pip install .[test] && pytest"
+  - docker run -v ${PWD}:/beaglepy -t 4ment/beaglepy /bin/bash -c "pip3 install .[test] && pytest"
