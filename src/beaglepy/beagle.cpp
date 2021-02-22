@@ -10,7 +10,7 @@ namespace py = pybind11;
 using double_np = py::array_t<double, pybind11::array::c_style | pybind11::array::forcecast>;
 
 
-PYBIND11_MODULE(beaglepy, m) {
+PYBIND11_MODULE(beagle, m) {
     m.doc() = R"pbdoc(Python interface for BEAGLE)pbdoc";
 
     py::enum_<BeagleReturnCodes>(m, "BeagleReturnCodes", py::arithmetic(), R"pbdoc(
@@ -350,7 +350,7 @@ PYBIND11_MODULE(beaglepy, m) {
 
     m.def("set_tip_partials", [](int instance,
                                  int tipIndex,
-                                 const std::vector<double>& inPartials){
+                                 double_np inPartials){
     return beagleSetTipPartials(instance, tipIndex, inPartials.data());
     }
     ,R"pbdoc(

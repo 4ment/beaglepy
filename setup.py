@@ -1,4 +1,4 @@
-from setuptools import setup, Extension
+from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
@@ -25,10 +25,10 @@ class get_pybind_include(object):
 
 ext_modules = [
     Extension(
-        'beaglepy',
+        'beaglepy.beagle',
         # Sort input source files to ensure bit-for-bit reproducible builds
         # (https://github.com/pybind/python_example/pull/53)
-        sorted(['src/beagle.cpp']),
+        sorted(['src/beaglepy/beagle.cpp']),
         include_dirs=[
             # Path to pybind11 headers
             get_pybind_include(),
@@ -121,6 +121,8 @@ setup(
     ext_modules=ext_modules,
     setup_requires=['pybind11>=2.5.0'],
     cmdclass={'build_ext': BuildExt},
+    packages=find_packages('src'),
+    package_dir={'':'src'},
     zip_safe=False,
     extras_require={
         "test": ['pytest', 'numpy']
