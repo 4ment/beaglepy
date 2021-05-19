@@ -588,39 +588,6 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
 
-    m.def("update_transition_matrices_with_model_categories", [](int instance,
-                                                                std::vector<int>& eigenIndices,
-                                                                const std::vector<int>& probabilityIndices,
-                                                                std::optional<std::vector<int>> firstDerivativeIndices,
-                                                                std::optional<std::vector<int>> secondDerivativeIndices,
-                                                                const std::vector<double>& edgeLengths){
-    return beagleUpdateTransitionMatricesWithModelCategories(instance,
-        eigenIndices.data(),
-        probabilityIndices.data(),
-        firstDerivativeIndices.has_value() ? firstDerivativeIndices->data() : nullptr,
-        secondDerivativeIndices.has_value() ? secondDerivativeIndices->data() : nullptr,
-        edgeLengths.data(),
-        edgeLengths.size());
-    }
-    ,R"pbdoc(
-    Calculate a list of transition probability matrices with each category using a different eigen decompsition
-
-    This function calculates a list of transition probabilities matrices and their first and
-    second derivatives (if requested). Each matrix is calculated for categoryCount categories,
-    with each category using a different eigen decomposition based on eigenIndices.
-
-    :param instance:                  Instance number (input)
-    :param eigenIndices:              List of indices of eigen-decomposition buffers, with categoryCount length (input)
-    :param probabilityIndices:        List of indices of transition probability matrices to update (input)
-    :param firstDerivativeIndices:    List of indices of first derivative matrices to update (input, NULL implies no calculation)
-    :param secondDerivativeIndices:   List of indices of second derivative matrices to update (input, NULL implies no calculation)
-    :param edgeLengths:               List of edge lengths with which to perform calculations (input)
-    :param count:                     Length of lists  (except for eigenIndices list)
-
-    :return: error code
-    )pbdoc");
-
-
     m.def("update_transition_matrices_with_multiple_models", [](int instance,
                                                                 const std::vector<int>& eigenIndices,
                                                                 const std::vector<int>& categoryRateIndices,
