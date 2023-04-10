@@ -53,14 +53,14 @@ def print_flags(flags):
     if flags & beaglepy.BEAGLE_FLAG_FRAMEWORK_OPENCL:
         sys.stdout.write(" FRAMEWORK_OPENCL")
 
-def print_resource_list():
-	rList = beaglepy.get_resource_list()
-	sys.stdout.write("Available resources:\n")
-	for i in range(len(rList)):
-		sys.stdout.write("\tResource {}:\n\t\tName : {}\n".format(i, rList[i].name))
-		sys.stdout.write("\t\tDesc : {}\n".format(rList[i].description))
-		sys.stdout.write("\t\tFlags:")
-		print_flags(rList[i].support_flags)
-		sys.stdout.write("\n")
-	sys.stdout.write("\n")
 
+def print_resource_list():
+    rList = beaglepy.get_resource_list()
+    sys.stdout.write("Available resources:\n")
+    for i in range(len(rList)):
+        sys.stdout.write("\tResource {}:\n\t\tName : {}\n".format(i, rList[i].name))
+        sys.stdout.write("\t\tDesc : {}\n".format(rList[i].description))
+        sys.stdout.write("\t\tFlags:")
+        print_flags(rList[i].support_flags)
+        sys.stdout.write("\n")
+    sys.stdout.write("\n")
