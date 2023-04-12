@@ -835,6 +835,38 @@ PYBIND11_MODULE(beagle, m) {
           "child2_transition_matrix", &BeagleOperation::child2TransitionMatrix,
           "index of transition matrix of second partials child buffer");
 
+  PYBIND11_NUMPY_DTYPE(BeagleOperation, destinationPartials,
+                       destinationScaleWrite, destinationScaleRead,
+                       child1Partials, child1TransitionMatrix, child2Partials,
+                       child2TransitionMatrix);
+
+  m.def(
+      "update_partials",
+      [](int instance,
+         py::array_t<BeagleOperation, py::array::c_style | py::array::forcecast>
+             operations,
+         int operationCount, int cumulativeScaleIndex) {
+        int errCode = beagleUpdatePartials(
+            instance, operations.data(), operationCount, cumulativeScaleIndex);
+        if (errCode != 0) {
+          throw BeagleException("update_partials", errCode);
+        }
+      },
+      R"pbdoc(
+    Calculate or queue for calculation partials using operations specified in a numpy array
+
+    This function either calculates or queues for calculation a list partials. Implementations
+    supporting ASYNCH may queue these calculations while other implementations perform these
+    operations immediately and in order.
+
+    :param instance:                  Instance number (input)
+    :param operations:                numpy array of operations (input)
+    :param operationCount:            Number of operations (input)
+    :param cumulativeScaleIndex:      Index number of scaleBuffer to store accumulated factors (input)
+
+    :raises BeagleException:
+    )pbdoc");
+
   m.def("update_partials",
         [](int instance, std::vector<BeagleOperation> operations,
            int operationCount, int cumulativeScaleIndex) {
