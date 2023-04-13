@@ -1,0 +1,33 @@
+name: Testing (Linux)
+
+on: [push]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [3.7, 3.8, 3.9, '3.10', '3.11']
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Add conda to system path
+      run: |
+        # $CONDA is an environment variable pointing to the root of the miniconda directory
+        echo $CONDA/bin >> $GITHUB_PATH
+    - name: Install dependencies
+      run: |
+        conda install -c bioconda "beagle-lib==3.1.2"
+    - name: Install beaglepy
+      run: |
+        export CPLUS_INCLUDE_PATH=${CPLUS_INCLUDE_PATH}:$CONDA/include/libhmsbeagle-1
+        python -m pip install --upgrade pip
+        pip install .[test]
+    - name: Test with pytest
+      run: |
+        pytest
