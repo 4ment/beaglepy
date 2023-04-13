@@ -1,3 +1,6 @@
+// Copyright 2023 Mathieu Fourment.
+// beaglepy is free software under the GPLv3; see LICENSE file for details.
+
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -318,7 +321,8 @@ PYBIND11_MODULE(beagle, m) {
         py::arg("matrixBufferCount"), py::arg("categoryCount"),
         py::arg("scaleBufferCount"), py::arg("resourceList") = py::none(),
         py::arg("resourceCount"), py::arg("preferenceFlags"),
-        py::arg("requirementFlags"), py::arg("returnInfo"), R"pbdoc(
+        py::arg("requirementFlags"), py::arg("returnInfo"),
+        R"pbdoc(
     Create a single instance
 
     This function creates a single instance of the BEAGLE library and can be called
@@ -467,9 +471,9 @@ PYBIND11_MODULE(beagle, m) {
 
   m.def(
       "get_partials",
-      [](int instance, int bufferIndex, int scaleIndex, double_np inPartials) {
+      [](int instance, int bufferIndex, int scaleIndex, double_np& inPartials) {
         int errCode = beagleGetPartials(instance, bufferIndex, scaleIndex,
-                                        (double*)inPartials.data());
+                                        inPartials.mutable_data());
         if (errCode != 0) {
           throw BeagleException("get_partials", errCode);
         }
@@ -761,9 +765,9 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
   m.def("get_transition_matrix",
-        [](int instance, int matrixIndex, double_np outMatrix) {
+        [](int instance, int matrixIndex, double_np& outMatrix) {
           int errCode = beagleGetTransitionMatrix(instance, matrixIndex,
-                                                  (double*)outMatrix.data());
+                                                  outMatrix.mutable_data());
           if (errCode != 0) {
             throw BeagleException("get_transition_matrix", errCode);
           }
@@ -1101,9 +1105,9 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
   m.def("get_scale_factors",
-        [](int instance, int srcScalingIndex, double_np outScaleFactors) {
+        [](int instance, int srcScalingIndex, double_np& outScaleFactors) {
           int errCode = beagleGetScaleFactors(instance, srcScalingIndex,
-                                              (double*)outScaleFactors.data());
+                                              outScaleFactors.mutable_data());
           if (errCode != 0) {
             throw BeagleException("get_scale_factors", errCode);
           }
@@ -1125,11 +1129,11 @@ PYBIND11_MODULE(beagle, m) {
            const std::vector<int>& categoryWeightsIndices,
            const std::vector<int>& stateFrequenciesIndices,
            const std::vector<int>& cumulativeScaleIndices, int count,
-           double_np outSumLogLikelihood) {
+           double_np& outSumLogLikelihood) {
           int errCode = beagleCalculateRootLogLikelihoods(
               instance, bufferIndices.data(), categoryWeightsIndices.data(),
               stateFrequenciesIndices.data(), cumulativeScaleIndices.data(),
-              count, (double*)outSumLogLikelihood.data());
+              count, outSumLogLikelihood.mutable_data());
           if (errCode != 0) {
             throw BeagleException("calculate_root_log_likelihoods", errCode);
           }
@@ -1157,14 +1161,14 @@ PYBIND11_MODULE(beagle, m) {
            const std::vector<int>& stateFrequenciesIndices,
            const std::vector<int>& cumulativeScaleIndices,
            const std::vector<int>& partitionIndices, int partitionCount,
-           int count, double_np outSumLogLikelihoodByPartition,
-           double_np outSumLogLikelihood) {
+           int count, double_np& outSumLogLikelihoodByPartition,
+           double_np& outSumLogLikelihood) {
           int errCode = beagleCalculateRootLogLikelihoodsByPartition(
               instance, bufferIndices.data(), categoryWeightsIndices.data(),
               stateFrequenciesIndices.data(), cumulativeScaleIndices.data(),
               partitionIndices.data(), partitionCount, count,
-              (double*)outSumLogLikelihoodByPartition.data(),
-              (double*)outSumLogLikelihood.data());
+              outSumLogLikelihoodByPartition.mutable_data(),
+              outSumLogLikelihood.mutable_data());
           if (errCode != 0) {
             throw BeagleException("calculate_root_log_likelihoods_by_partition",
                                   errCode);
@@ -1199,7 +1203,7 @@ PYBIND11_MODULE(beagle, m) {
            const std::vector<int>& categoryWeightsIndices,
            const std::vector<int>& stateFrequenciesIndices,
            const std::vector<int>& cumulativeScaleIndices, int count,
-           double_np outSumLogLikelihood,
+           double_np& outSumLogLikelihood,
            std::optional<double_np> outSumFirstDerivative,
            std::optional<double_np> outSumSecondDerivative) {
           int errCode = beagleCalculateEdgeLogLikelihoods(
@@ -1213,12 +1217,12 @@ PYBIND11_MODULE(beagle, m) {
                   : nullptr,
               categoryWeightsIndices.data(), stateFrequenciesIndices.data(),
               cumulativeScaleIndices.data(), count,
-              (double*)outSumLogLikelihood.data(),
+              outSumLogLikelihood.mutable_data(),
               outSumFirstDerivative.has_value()
-                  ? (double*)outSumFirstDerivative->data()
+                  ? outSumFirstDerivative->mutable_data()
                   : nullptr,
               outSumSecondDerivative.has_value()
-                  ? (double*)outSumSecondDerivative->data()
+                  ? outSumSecondDerivative->mutable_data()
                   : nullptr);
           if (errCode != 0) {
             throw BeagleException("calculate_edge_log_likelihoods", errCode);
@@ -1265,8 +1269,8 @@ PYBIND11_MODULE(beagle, m) {
            const std::vector<int>& stateFrequenciesIndices,
            const std::vector<int>& cumulativeScaleIndices,
            const std::vector<int>& partitionIndices, int partitionCount,
-           int count, double_np outSumLogLikelihoodByPartition,
-           double_np outSumLogLikelihood,
+           int count, double_np& outSumLogLikelihoodByPartition,
+           double_np& outSumLogLikelihood,
            std::optional<double_np> outSumFirstDerivativeByPartition,
            std::optional<double_np> outSumFirstDerivative,
            std::optional<double_np> outSumSecondDerivativeByPartition,
@@ -1275,27 +1279,27 @@ PYBIND11_MODULE(beagle, m) {
               instance, parentBufferIndices.data(), childBufferIndices.data(),
               probabilityIndices.data(),
               firstDerivativeIndices.has_value()
-                  ? (int*)firstDerivativeIndices->data()
+                  ? firstDerivativeIndices->data()
                   : nullptr,
               secondDerivativeIndices.has_value()
-                  ? (int*)secondDerivativeIndices->data()
+                  ? secondDerivativeIndices->data()
                   : nullptr,
               categoryWeightsIndices.data(), stateFrequenciesIndices.data(),
               cumulativeScaleIndices.data(), partitionIndices.data(),
               partitionCount, count,
-              (double*)outSumLogLikelihoodByPartition.data(),
-              (double*)outSumLogLikelihood.data(),
+              outSumLogLikelihoodByPartition.mutable_data(),
+              outSumLogLikelihood.mutable_data(),
               outSumFirstDerivativeByPartition.has_value()
-                  ? (double*)outSumFirstDerivativeByPartition->data()
+                  ? outSumFirstDerivativeByPartition->mutable_data()
                   : nullptr,
               outSumFirstDerivative.has_value()
-                  ? (double*)outSumFirstDerivative->data()
+                  ? outSumFirstDerivative->mutable_data()
                   : nullptr,
               outSumSecondDerivativeByPartition.has_value()
-                  ? (double*)outSumSecondDerivativeByPartition->data()
+                  ? outSumSecondDerivativeByPartition->mutable_data()
                   : nullptr,
               outSumSecondDerivative.has_value()
-                  ? (double*)outSumSecondDerivative->data()
+                  ? outSumSecondDerivative->mutable_data()
                   : nullptr);
           if (errCode != 0) {
             throw BeagleException("calculate_edge_log_likelihoods_by_partition",
@@ -1332,9 +1336,9 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
   m.def("get_log_likelihood",
-        [](int instance, double_np outSumLogLikelihood) {
+        [](int instance, double_np& outSumLogLikelihood) {
           int errCode = beagleGetLogLikelihood(
-              instance, (double*)outSumLogLikelihood.data());
+              instance, outSumLogLikelihood.mutable_data());
           if (errCode != 0) {
             throw BeagleException("get_log_likelihood", errCode);
           }
@@ -1355,12 +1359,12 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
   m.def("get_derivatives",
-        [](int instance, double_np outSumFirstDerivative,
+        [](int instance, double_np& outSumFirstDerivative,
            std::optional<double_np> outSumSecondDerivative) {
           int errCode = beagleGetDerivatives(
-              instance, (double*)outSumFirstDerivative.data(),
+              instance, outSumFirstDerivative.mutable_data(),
               outSumSecondDerivative.has_value()
-                  ? (double*)outSumSecondDerivative->data()
+                  ? outSumSecondDerivative->mutable_data()
                   : nullptr);
           if (errCode != 0) {
             throw BeagleException("get_derivatives", errCode);
@@ -1383,9 +1387,9 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
   m.def("get_site_log_likelihoods",
-        [](int instance, double_np outLogLikelihoods) {
+        [](int instance, double_np& outLogLikelihoods) {
           int errCode = beagleGetSiteLogLikelihoods(
-              instance, (double*)outLogLikelihoods.data());
+              instance, outLogLikelihoods.mutable_data());
           if (errCode != 0) {
             throw BeagleException("get_site_log_likelihoods", errCode);
           }
@@ -1402,12 +1406,12 @@ PYBIND11_MODULE(beagle, m) {
     )pbdoc");
 
   m.def("get_site_derivatives",
-        [](int instance, double_np outFirstDerivatives,
+        [](int instance, double_np& outFirstDerivatives,
            std::optional<double_np> outSecondDerivatives) {
           int errCode = beagleGetSiteDerivatives(
-              instance, (double*)outFirstDerivatives.data(),
+              instance, outFirstDerivatives.mutable_data(),
               outSecondDerivatives.has_value()
-                  ? (double*)outSecondDerivatives->data()
+                  ? outSecondDerivatives->mutable_data()
                   : nullptr);
           if (errCode != 0) {
             throw BeagleException("get_site_derivatives", errCode);

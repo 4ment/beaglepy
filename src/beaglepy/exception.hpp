@@ -1,3 +1,8 @@
+// Copyright 2023 Mathieu Fourment.
+// beaglepy is free software under the GPLv3; see LICENSE file for details.
+
+#pragma once
+
 #include <string>
 
 namespace beagle {
@@ -17,18 +22,17 @@ static const char *errors[] = {
 class BeagleException : public std::exception {
  public:
   explicit BeagleException(const char *functionName, int errCode)
-      : functionName_{functionName}, errCode_(errCode) {}
-
-  const char *what() const noexcept override {
-    string message = "BEAGLE function, " + functionName_ +
-                     ", returned error code " + std::to_string(errCode_);
+      : functionName_{functionName}, errCode_(errCode) {
+    message_ = "BEAGLE function, " + functionName_ + ", returned error code " +
+               std::to_string(errCode_);
     if (errCode_ > 0 || errCode_ < -8) {
-      message += " (unrecognized error code)";
+      message_ += " (unrecognized error code)";
     } else {
-      message += " (" + string(errors[-errCode_]) + ")";
+      message_ += " (" + string(errors[-errCode_]) + ")";
     }
-    return message.c_str();
   }
+
+  const char *what() const noexcept override { return message_.c_str(); }
 
   string GetFunctionName() const { return functionName_; }
 
@@ -37,5 +41,6 @@ class BeagleException : public std::exception {
  private:
   string functionName_;
   int errCode_;
+  string message_;
 };
 }  // namespace beagle
